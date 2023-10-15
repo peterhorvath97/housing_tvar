@@ -1,0 +1,604 @@
+---
+title: "Could interest rate hikes burst the housing bubble?"
+author: "Péter Horváth"
+output: 
+  pdf_document:
+    includes:
+      in_header: "preamble.tex"
+fontsize: 12pt
+bibliography: "ref.bib"
+csl: "custom-citations.csl"
+link-citations: true
+linkcolor: "blue"
+geometry: "a4paper,outer=25mm,inner=35mm,top=25mm,bottom=25mm"
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      results = FALSE)
+nboot_vec <- 10
+```
+
+
+
+# Abstract
+\indent This paper discusses the US housing market from a monetary policy point of view. In recent years we saw a vast increase in real housing prices, which could be a consequence of the low interest rate environment. Recent economic developments causing heightened inflationary pressure however lead most central banks to start an aggressive interest rate rise policy, ending the low interest rate era. This leads us to the proposed question - could the interest rate hikes burst the housing bubble? To investigate this, I estimate a two-regime TVAR model dependent on housing prices using US data. Results show that although the size of the impact of an interest rate shock is similar in both regimes, its persistence much stronger when housing prices are high.
+
+\textbf{Keywords:} Housing market, Monetary policy, Non-linearity, Threshold Vector Auto-Regression
+
+\newpage
+
+# 1. Introduction 
+
+\indent Over the recent years, studying the relationship between the housing market and the economy has been progressively researched, as it provides key implications for conducting appropriate policy making in the fields of fiscal, macroprudential and monetary authorities. @iacoviello2007 use Bayesian DSGE methods to show that housing shocks have a non-negligible spillover effect on the economy as they influence consumption decisions. @schiller2003's paper although published almost two decades ago, show using survey data, that there was strong evidence of the existence of a housing price bubble - a statement that is likely true in current times as well. @dsgemacroprud point to the importance of understanding the underlying shocks to the housing market for conducting optimal monetary and macroprudential policies also using a DSGE model.
+
+The low interest rate era following the Great Recession lead to a vast increase in lending activites, which is likely to have caused the extreme increase in housing prices. However, as inflation has been persistently rising, central banks are forced to shift towards an aggressive monetary tightening policies in order to stop prices from rising even further. This leads us to the proposed question: "Could the interest rate hikes burst the housing bubble?" To investigate this, I fit a state-dependent Threshold Vector-Autoregressive (TVAR) model on US data. From such a model, it can be derived if the impact of shocks to the Federal Funds Rate impact the economy differently when the housing market is overheating compared to when it is not.
+
+\noindent The rest of the paper will be outlined as follows. In section (2) I will give a brief description of the data used for estimation purposes and describe the empirical strategy in detail. Section (3) reports the results of the estimation, and section (4) concludes.
+
+# 2. Data and empirical strategy
+
+```{r}
+
+#packages
+library(fredr)
+library(tidyverse)
+library(vars)
+library(tsDyn)
+library(urca)
+library(lubridate)
+library(remotes)
+#install_github("angusmoore/tvarGIRF")
+library(tvarGIRF)
+
+
+#import data
+#set api key
+fredr_set_key("cda47ae66b38ed7988c0a9c2ec80c94f")
+
+#download data
+params <- list(
+  series_id = c("QUSR628BIS", "MORTGAGE30US", "DFF"),
+  frequency = "q",
+  observation_start = as.Date("1950-01-01")
+)
+
+
+import  <- pmap_dfr(
+  .l = params,
+  .f = ~ fredr(series_id = .x, frequency = .y)
+) %>%
+  dplyr::select(date, series_id, value) %>%
+  spread(key = series_id, value = value) %>%
+  drop_na() %>% rename(ffr = DFF,
+                       m30 = MORTGAGE30US,
+                       hprice = QUSR628BIS) %>%
+  drop_na() %>% 
+  filter(date <= as.Date("2021-12-01")) %>% 
+  left_join(
+fredr("GDPC1",
+             frequency = "q") %>% 
+  dplyr::select(date, gdp = value) %>% 
+  mutate(year = year(date)) %>% 
+  group_by(year) %>% 
+  mutate(mean = mean(gdp),
+         mean_2010 = ifelse(year == 2010, mean, NA)) %>% 
+  ungroup() %>% 
+  mutate(mean_2010 = mean(mean_2010, na.rm = TRUE),
+         gdp = 100*gdp/mean_2010) %>% 
+  dplyr::select(date, gdp), by = "date"
+) %>% 
+left_join(
+  fredr("RELACBW027SBOG",
+                frequency = "q") %>% 
+            dplyr::select(date, hloan = value) %>% 
+            mutate(year = year(date)) %>% 
+            group_by(year) %>% 
+            mutate(mean = mean(hloan),
+                   mean_2010 = ifelse(year == 2010, mean, NA)) %>% 
+            ungroup() %>% 
+            mutate(mean_2010 = mean(mean_2010, na.rm = TRUE),
+                   hloan = 100*hloan/mean_2010) %>% 
+            dplyr::select(date, hloan),
+  by = "date") %>% 
+  drop_na()
+
+```
+
+For the purposes of this analysis I will be relying on quarterly data from the US, ranging from January 1973 to December 2021. House prices will be measured by the real residential property price index and the impact of monetary policy shocks will be identified by shocks to the Federal Funds Rate. As the credit channel of monetary policy is important for the housing market, the inclusion of variables that represent the housing loan market is necessary as well. For this purpose I include the volume of real estate loans from all banks and the 30-year fixed rate mortgage average as interest rate paid on housing loans. To further enrich the model, I also include quarterly GDP as a measure of economic activity. All data used are retrieved from the Federal Reserve Economic Database.
+
+```{r, fig.cap = "Time series plots of data series used in levels"}
+import %>% gather(key = "variable", value = "value", ffr, m30, hloan, gdp, hprice) %>%
+  mutate(variable = case_when(variable == "ffr" ~ "Federal Funds Rate",
+                              variable == "gdp" ~ "GDP",
+                              variable == "hloan" ~ "Real Estate Loans",
+                              variable == "hprice" ~ "Real Residential Property Prices",
+                              variable == "m30" ~ "30-Year Fixed Rate Mortgage Average")) %>%
+  ggplot(aes(x = date, y = value)) +
+  geom_line() +
+  facet_wrap(~variable, scales = "free") + theme_minimal() +
+  labs(x = "",
+       y = "",
+       caption = "The real GDP and the volume of real estate loans are normalized by their 2010 averages") 
+```
+
+Given the set of variables, there are two choices in terms of econometric models to consider, either a VAR or a VECM - given the possibility of long run co-movement. @jarocinski2008house and @musso2011housing both study the relationship between housing prices and the economy using SVAR models, while @iacoviello2008credit use a VECM approach. Furthermore, a VECM model could have even better economic interpretation in a threshold specification - as the error correction term could be considerd a measure of disequilibrium in the housing market. Running the appropriate test hints at there being a linear cointegrating vector, however running the test constructed by @seo2006bootstrap hints at rejecting the threshold cointegration model against the null of no cointegration. The results of these tests can be found in the appendix.
+
+A caveat to be mentioned here is checking if there is non-linearity in the cointegrating relationship itself. If we consider one of the variables, or an already existing external variable as the threshold, the test and models could be specified in a way to test for such a relationship. However, with such a specification I do not see a clear economic interpretation that would further the findings of this paper. An alternate approach would be assuming non-linearity in the cointegrating vector while also keeping the error correction term as the threshold variable. This would require a latent variable model the likes of which I have not yet seen in existing literature.  
+
+
+For the purposes outlined above, in order to study the relationship between monetary policy shocks and the housing market, vector-autoregressive models should provide an appropriate tool for the analysis. First, let's consider a simple VAR model which can be written in a recursive formula such as
+\begin{equation}
+	B(L)Y_{t} = \alpha_{0} + \epsilon_{t},
+\end{equation}
+where  $B(L)$ is the matrix of coefficients at lag L, $Y_{t}$ is the vector of endogenous variables, $\alpha_{0}$ is the vector of constants and $\epsilon_{t}$ is the error term.
+
+An adequate way to analyze the impact of a monetary policy shock is to impose a set of restrictions on the model and identify structural shocks. The identification is done with choleski decomposition with the variables being
+\begin{equation}
+	Y_{t} = 
+	\begin{Bmatrix}
+		FFR_{t} \\
+		M30_{t} \\
+		HLOAN_{t} \\
+		GDP_{t} \\
+		HPRICE_{t}
+	\end{Bmatrix}
+\end{equation}
+where $FFR_{t}$ is the Federal Funds Rate, $M30_{t}$ is the 30-year fixed rate mortgage average, $HLOAN_{t}$ is the quarterly growth in housing loan volume, $GDP_{t}$ is the quarterly GDP growth, and $HPRICE_{t}$ is the quarterly growth in real residential prices. 
+
+To identify the contemporaneus effect, consider the following matrix
+\begin{equation}
+A = 
+\begin{Bmatrix}
+a_{1,1} & 0 & 0 & a_{1,4} & 0 \\
+a_{2,1} & a_{2,2} & 0 & 0 & 0 \\
+a_{3,1} & a_{3,2} & a_{3,3} & 0 & 0 \\
+0 & 0 & 0 & a_{4,4} & 0 \\
+0 & a_{5,2} & a_{5,3} & 0 & a_{5,5}
+\end{Bmatrix}
+\end{equation}
+where we assume that the FFR can only contemporaneously affect the loan market, movements in the mortgage rate has an immediate impact on the housing loan volume and housing prices, fluctuations in the volume of housing loans can directly impact housing prices, but not the other variables, GDP shocks have a direct impact on the FFR, and housing price shocks have no contemporaneous effect.From this simple structural VAR model we get the following impulse responses for a 1 percentage point shock to the interest rate \footnote{Lag order of 1 selected by the Schwarz-Bayesian Information Criterion}:
+
+
+```{r, fig.cap = "Impulse responses of a 1 percentage point interest rate rise in a SVAR(1) model"}
+data <- import %>% 
+  dplyr::select(ffr, m30, hloan, gdp, hprice) %>% 
+  mutate(hloan = hloan - lag(hloan),
+         gdp = gdp - lag(gdp),
+         hprice = hprice - lag(hprice)) %>% drop_na() %>% ts()
+
+
+#fitting simple var model
+VARselect(data)
+
+var <- VAR(data, p = 1, type = "const")
+
+varcoef <- bind_rows(
+  var$varresult$ffr$coefficients,
+  var$varresult$m30$coefficients,
+  var$varresult$hloan$coefficients,
+  var$varresult$gdp$coefficients,
+  var$varresult$hprice$coefficients) %>%
+  as.matrix()
+
+#identify structural shocks
+#e <- resid(var)
+#cov_mat <- t(e) %*% e
+#chol <- chol(cov_mat)
+#ffrshock <- chol[1,] / chol[1,1]
+
+source("SVAR2.R")
+struct_shock <- function(var, data, amat, bmat, estmethod){
+  x <- SVAR2(var = var, data = data,
+             Amat = amat,
+             Bmat = bmat, 
+             estmethod = estmethod)
+  
+  shockmat <- x$A %*% x$B
+  
+  shockmat <- shockmat*-1
+  diag(shockmat) <- diag(shockmat)*-1
+  
+  shockmat <- shockmat / diag(shockmat)
+  
+  message(paste("Minimum number of restrictions in the A matrix must be ", ncol(data)*(ncol(data)-1)/2, sep = ""))
+  shockmat
+}
+
+amat <- diag(ncol(data))
+amat[lower.tri(amat)] <- NA
+diag(amat) <- NA
+#FFR shocks
+amat[4:5, 1] <- 0
+#M30 shocks
+amat[4, 2] <- 0
+#HLOAN shocks
+amat[4, 3] <- 0
+#GDP shocks
+amat[5,4] <- 0
+amat[1,4] <- NA
+
+bmat <- diag(ncol(data))
+diag(bmat) <- NA
+
+amat
+
+ffrshock <- struct_shock(var = var,
+                         data = data,
+                         amat = amat,
+                         bmat = bmat,
+                         estmethod = "scoring")
+
+ffrshock <- ffrshock[,1]
+
+
+irfgen <- function(shock, nahead, coefmat, main){
+  
+  irf<- matrix(nrow = length(shock), ncol = nahead+1)
+  irf[,1] <- shock %>% as.matrix()
+  t <- matrix(ncol = 1, nrow = nahead+1)
+  
+  for(j in 1:ncol(irf)){
+    t[j, 1] <- j-1
+  }
+  
+  for(j in 2:ncol(irf)){
+    for(i in 1:nrow(irf)){
+      irf[i,j] <- irf[1,j-1]*coefmat[i,1]+
+        irf[2,j-1]*coefmat[i,2]+
+        irf[3,j-1]*coefmat[i,3]+
+        irf[4,j-1]*coefmat[i,4]+
+        irf[5,j-1]*coefmat[i,5]
+    }
+  }
+  
+  irf <- t(irf)
+  
+  colnames(irf) <- names(shock)
+  irf <- bind_cols(t, irf) %>%
+    as_tibble() %>%
+    rename(t = ...1)
+  
+  irf <- gather(irf, key = "variable", value = "response", ffr, m30, hloan, gdp, hprice) %>%
+    mutate(variable = case_when(variable == "ffr" ~ "FFR",
+                                variable == "m30" ~ "Mortgage rate",
+                                variable == "hloan" ~ "Housing loan",
+                                variable == "gdp" ~ "GDP",
+                                variable == "hprice" ~ "House Price Index"),
+           variable = factor(variable, levels = c("FFR", "Mortgage rate", "Housing loan", "GDP", "House Price Index")))
+  
+  ggplot(irf, aes(x = t, y = response)) +
+    geom_line() +
+    geom_hline(yintercept = 0, color = "red")+
+    facet_wrap(~variable, scales = "free") +
+    labs(x = "",
+         y = "",
+         title = main)+
+    theme(plot.title = element_text(size = 11, hjust=0.5),
+          axis.title.y = element_text(size=11))
+  
+}
+
+irfgen(shock = ffrshock,
+       nahead = 40,
+       coefmat = varcoef,
+       main = "")
+```
+
+
+From this we see that on impact, the mortgage rate rises sharply along with the FFR and converges towards zero more sluggishly, than the FFR. Economic activity drops by a small amount, only 0.03 percent one quarter after the shock, and continues decreasing by a minor amount up to the fifth quarter before starting to converge towards zero. By letting the FFR shocks contemporaneously affect housing loans as well, we can see a minor immediate impact, however, likely due to mortgage rates staying persistently high, the volume of loans continues to drop persistently, nearly doubling the initial impact. As a result of higher interest rates on loans, and decreasing liquidity, housing prices drop sharply and persistently.
+
+
+\noindent I find these results somewhat unsatisfactory however. While a simple SVAR model was able to show that house prices would drop significantly, and the impact of rising the interest rates is quite persistent, several authors hint at the possibility of a non-linear relationship between housing prices and the economy, including @jarocinski2008house, @musso2011housing, @ahamada2013retrospective, @ghodsi2017nonlinear and @kang2014non. Running a modified version of @hansen1999testing  likelihood-ratio test as proposed by @lo2001threshold using the algorithm implemented by @stigler2019 confirms this, as both the two and three regime VAR specifications cannot be rejected against the linear VAR.
+
+For the purposes of this paper, the two-threshold variant should be appropriate for two reasons. Firstly, with such a model, considering the number of observations per regime should not be overlooked. As I am using quarterly data, 
+
+
+suffice, thus we can formulate our model as: 
+ \begin{equation}
+ 	Y_{t} = \Theta_{1}I(X_{t-1})Y_{t-1}+\Theta_{2}I(X_{t-1})Y_{t-1} + \epsilon_{t},
+ \end{equation}
+where - as before - $Y_{t}$ is the list of endogenous variables, $\Theta_{i}$ are the matrices of regime specific coefficients, $I(X_{t-1})$ is the regime indicator function dependent on the lagged value of the threshold variable - which in our case is the quarterly growth of property prices. For the purposes of the TVAR estimation, I will keep the variable ordering, the lag order of 1, and as equation (3) suggest, the threshold value will be dependent on one quarter lag of house price growth. I will identify structural shocks using cholesky decomposition as before. 
+
+A potential problem with fitting the threshold VAR is the grid search for a best unique threshold value. Fitting an unrestricted model will find the optimal threshold value at a growth rate of approximately 2.06, which I see two problems with. Firstly, this way the share of observations is heavily skewed, with only about 11% of the data points (22 observations) being in the upper regime, which would cause concerns regarding the robustness of the results. Secondly, I see no clear economic interpretation for this value. A solution to this would be to manually set the threshold value to 0, essentially assuming that the economic dynamics differ when the housing market is in a boom versus a bust cycle - which gives us clear economic interpretation. Beyond this, bumping the threshold value to 0 ensures that the number of observations in the upper and lower regimes is 1/3 to 2/3, which would considerably reduce robustness concerns. 
+
+
+```{r}
+#tvar with optimal threshold value - possibly not very useful
+tvar <- TVAR(data, lag = 1, nthresh = 1, mTh = 5, model = "TAR", max.iter = 1000, trim = 0)  
+
+#tvar with threshold value = 0 - a compromised solution
+tvar <- TVAR(data, lag = 1, nthresh = 1, mTh = 5, model = "TAR", max.iter = 1000, gamma = 0)  
+
+
+#identify structural shocks
+#e <- resid(tvar)
+#cov_mat <- t(e) %*% e
+#chol <- chol(cov_mat)
+#ffrshock <- chol[1,] / chol[1,1]
+
+ffrshock <- struct_shock(var = tvar,
+                         data = data,
+                         amat = amat,
+                         bmat = bmat,
+                         estmethod = "scoring")
+
+ffrshock <- ffrshock[,1]
+
+
+highcoef <- tvar$coefficients$Bup
+
+lowcoef <- tvar$coefficients$Bdown
+
+irfgen <- function(shock, nahead, coefmat, main){
+  
+  irf<- matrix(nrow = length(shock), ncol = nahead+1)
+  irf[,1] <- shock %>% as.matrix()
+  t <- matrix(ncol = 1, nrow = nahead+1)
+  
+  for(j in 1:ncol(irf)){
+    t[j, 1] <- j-1
+  }
+  
+  for(j in 2:ncol(irf)){
+    for(i in 1:nrow(irf)){
+      irf[i,j] <- irf[1,j-1]*coefmat[i,2]+
+        irf[2,j-1]*coefmat[i,3]+
+        irf[3,j-1]*coefmat[i,4]+
+        irf[4,j-1]*coefmat[i,5]+
+        irf[5,j-1]*coefmat[i,6]
+    }
+  }
+  
+  irf <- t(irf)
+  
+  colnames(irf) <- names(shock)
+  irf <- bind_cols(t, irf) %>%
+    as_tibble() %>%
+    rename(t = ...1)
+  
+  irf <- gather(irf, key = "variable", value = "response", ffr, m30, hloan, gdp, hprice) %>%
+    mutate(variable = case_when(variable == "ffr" ~ "FFR",
+                                variable == "m30" ~ "Mortgage rate",
+                                variable == "hloan" ~ "Housing loan",
+                                variable == "gdp" ~ "GDP",
+                                variable == "hprice" ~ "House Price Index"),
+           variable = factor(variable, levels = c("FFR", "Mortgage rate", "Housing loan", "GDP", "House Price Index")))
+  
+  ggplot(irf, aes(x = t, y = response)) +
+    geom_line() +
+    geom_hline(yintercept = 0, color = "red")+
+    facet_wrap(~variable, scales = "free")+
+    labs(x = "",
+         y = "",
+         title = main)+
+    theme(plot.title = element_text(size = 11, hjust=0.5),
+          axis.title.y = element_text(size=11))
+  
+  
+}
+
+```
+
+# 3. Results
+
+First, it can be informative to take a look at the indicator function. If it turns out to be a simple recession indicator, it would mean that there is no further addition to the existing literature, as for example @jan1998 has already found evidence of recessions amplifying the effect of monetary shocks. As Figure 3. below shows, the boom-bust cycles of the housing market do not evidently coincide with recession periods, however the housing market reaching its peak is followed by a recession in each instance. Irrespective of this, the results should be quantitatively different from using the recession dummy as an indicator. 
+
+```{r, fig.cap = "Time series plots of level variables with the regime indicator"}
+
+indicator <- tvar$model.specific$regime
+
+import %>% filter(date >= as.Date("1973-04-01")) %>%
+  bind_cols(indicator) %>%
+  drop_na() %>%
+  rename(indicator = ...7) %>%
+  as_tibble() %>% gather(key = "variable", value = "value", ffr, m30, hloan, gdp, hprice) %>%
+  mutate(variable = case_when(variable == "ffr" ~ "Federal Funds Rate",
+                              variable == "gdp" ~ "GDP",
+                              variable == "hloan" ~ "Real Estate Loans",
+                              variable == "hprice" ~ "Real Residential Property Prices",
+                              variable == "m30" ~ "30-Year Fixed Rate Mortgage Average")) %>%
+  mutate(indicator = case_when(indicator == 1 ~ "Low regime",
+                               indicator == 2 ~ "High regime")) %>%
+  ggplot(aes(x = date, y = value, color = indicator, group = 1)) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~variable, scales = "free") + theme_minimal() +
+  scale_color_manual(breaks = c("High regime", "Low regime"),
+                     values = c("#E9002D", "#00B000")) +
+  labs(x = "",
+       y = "") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom") +
+  geom_rect(data = fredr(series_id = "USREC",
+                         frequency = "m") %>% 
+              dplyr::select(date, recession = value) %>% 
+              mutate(diff = recession - lag(recession)) %>% 
+              filter(!is.na(diff)) %>% 
+              mutate(recession_start = ifelse(diff == 1, as.character(date), NA),
+                     recession_end = ifelse(diff == -1, as.character(date), NA)) %>% 
+              filter(!is.na(recession_start) | !is.na(recession_end)) %>% 
+              mutate(recession_end = ifelse(!is.na(recession_start), lead(recession_end), NA)) %>%
+              filter(!is.na(recession_start)) %>% 
+              mutate(across(.cols = c(recession_start, recession_end), .fns = ~as.Date(.x))) %>% 
+              dplyr::select(recession_start, recession_end) %>% 
+              filter(recession_start >= min(import$date),
+                     recession_start <= max(import$date)),
+            inherit.aes = F,
+            aes(xmin = recession_start, xmax = recession_end, ymin = -Inf, ymax = Inf), 
+            fill = "grey50", alpha = 0.5)
+```
+
+
+Compared to the simple SVAR, examining how the threshold variant reacts to innovations requires some additional steps, as the model can shift from one regime to the other after the impact of a shock. To capture this, generalized or nonlinear impulse responses would be necessary. However, taking a look at the impulse responses with each set of coefficients can provide some useful insight into the dynamics of each regime. In figures 4. and 5. below, we can see the impulse responses of a structural shock from a 1 percentage point interest rate rise in the high and low regimes respectively. The identification of the structural shocks is done identically to the linear SVAR example, assuming that contemporaneous effects do not switch with the regimes.
+
+
+\noindent 
+```{r, fig.cap = "Impulse responses of a 1 percentage point interest rate rise in TVAR(1) model - high regime"}
+
+irfgen(shock = ffrshock,
+                   nahead = 40,
+                   coefmat = highcoef,
+       main = "")
+
+```
+
+```{r, fig.cap = "Impulse responses of a 1 percentage point interest rate rise in TVAR(1) model - low regime"}
+
+irfgen(shock = ffrshock,
+       nahead = 40,
+       coefmat = lowcoef,
+       main = "")
+
+```
+
+
+The impulse responses generated from the lower regime are more comparable to the linear SVAR case, seeing as they converge to zero. There are however some noteworthy differences. At first glance, the interest rates slump towards zero much faster than in the linear case. We can also see that along with the interest rates, the volume of housing loans grows as well on impact, and require a few quarters to drop into the negatives. This could mean that relatively low housing prices lead investors to increase borrowing activity - seeing as in the long run, housing prices are more likely to increase than decrease - however as housing prices start to drop, so does the investors' borrowing. We can also see that the impact on GDP is even more negligible than in the linear model, while the rebound is also faster. The response of house prices is smaller than that of the linear model, however the rebound is quicker and after 8 quarters, prices start increasing and stay persistently high. 
+
+Taking a look at the high regime, we can observe that the the impulse responses diverge, meaning no stable equilibrium during housing boom cycles. This has two implications. Firstly, the presence of such dynamics means a much sharper impact of monetary shocks during a housing market boom. This means that increasing interest rates should reduce the growth of house prices to the point of their contraction. The second possible implication comes from the lack of equilibrium in the higher regime. This could hint at the possibility of a price bubble, as even minor innovations would cause the aggregates to diverge. 
+
+These diverging impulse responses can be alarming, as they could mean that the overall model is unstable. To provide further evidence for the stability of the model and the results, I construct generalized impulse responses using bootstrap aggregation. These are given as differences of the estimated structural shock from a randomly sampled innovation from the residuals for each observation in time. The simulation is then repeated 10.000 times and averaged. With these generalized impulse responses it can be shown that the model is in fact stable, even if the initial shock is in the upper regime. The generalized impulse responses can be seen in figures 6. and 7. below.
+
+
+
+```{r, fig.cap =                                                                                                                         "Generalized impulse responses of a 1 percentage point interest rate rise - Bootstrap average of the overall model"}
+readr::read_rds("GIRF_1.rds") %>% 
+  mutate(variable = case_when(variable == "ffr" ~ "FFR",
+                              variable == "m30" ~ "Mortgage rate",
+                              variable == "hloan" ~ "Housing loan",
+                              variable == "gdp" ~ "GDP",
+                              variable == "hprice" ~ "House Price Index"),
+         variable = factor(variable, levels = c("FFR", "Mortgage rate", "Housing loan", "GDP", "House Price Index"))) %>%
+  ggplot(aes(x = t, y = response)) +
+  geom_line() +
+  geom_hline(yintercept = 0, color = "red")+
+#  geom_ribbon(aes(ymin = lower, ymax = upper),alpha = 0.5) +
+  facet_wrap(~variable, scales = "free") +
+  labs(x = "",
+       y = "")
+
+```
+
+
+```{r, fig.cap =                                                                                                                                 "Generalized impulse responses of a 1 percentage point interest rate rise - Bootstrap averages of shocks originating in each regime"}
+readr::read_rds("GIRF_2.rds") %>% 
+  mutate(regime = case_when(regime == 1 ~ "Low regime",
+                               regime == 2 ~ "High regime")) %>% 
+  mutate(variable = case_when(variable == "ffr" ~ "FFR",
+                              variable == "m30" ~ "Mortgage rate",
+                              variable == "hloan" ~ "Housing loan",
+                              variable == "gdp" ~ "GDP",
+                              variable == "hprice" ~ "House Price Index"),
+         variable = factor(variable, levels = c("FFR", "Mortgage rate", "Housing loan", "GDP", "House Price Index"))) %>% 
+  ggplot(aes(x = t, y = response, color = as.factor(regime))) +
+  geom_line() +
+  geom_hline(yintercept = 0, color = "red")+
+  facet_wrap(~variable, scales = "free")+
+  scale_color_manual(breaks = c("High regime", "Low regime"),
+                     values = c("#E9002D", "#00B000")) +
+  labs(x = "",
+       y = "")+
+  theme(plot.title = element_text(size = 11, hjust=0.5),
+        axis.title.y = element_text(size=11),
+        legend.title = element_blank()) +
+  labs(x = "",
+       y = "")
+
+```
+
+\newpage
+
+# Conclusion
+
+This paper attempts to study the nonlinear relationship between the housing market and the economy. The main hypothesis is that interest rate shocks hit the housing market much more severely, when the market is already heated. To study this relationship I fitted a two-regime TVAR model over key economic variables from the US. The results confirm that when the economy is in a heated housing market, monetary policy shocks can indeed cause a greater slump in housing prices. Moreover, the lack of equilibrium in such an economic state could also hint at the existence of an asset price bubble in the housing market.
+
+
+# References
+::: {#refs}
+:::
+<div id="ref"></div>
+
+\newpage
+
+# Appendix
+
+\textbf{Testing for linear and threshold cointegration}
+
+Given the set of variables outlined in the Data and empirical strategy section, it is worthwile to check for the existence of a cointegrating relationship. For this purpose, I ran a Johansen cointegration test, the results of which can be seen in the table below.
+
+```{r}
+data <- import %>% 
+  dplyr::select(hprice, ffr, m30, hloan, gdp) %>% ts()
+
+
+VARselect(data)$selection %>% as_tibble() %>% 
+  mutate(type = names(VARselect(data)$selection)) %>% 
+  mutate(type = str_replace_all(type, "\\(n\\)", "")) %>% 
+  dplyr::select(type, value)
+
+
+johansen <- ca.jo(data, type = "trace", K = 2, spec = "longrun", ecdet = "none") %>% 
+  summary()
+
+
+coint_tab <- johansen@cval %>% 
+  as.tibble() %>% 
+  mutate(test = johansen@teststat) %>% 
+  dplyr::select(test, everything()) %>% 
+  as.matrix()
+rownames(coint_tab) <- rownames(johansen@cval)
+for(i in 1:nrow(coint_tab)){
+  for(j in 1:ncol(coint_tab)){
+    coint_tab[i,j] <- round(coint_tab[i,j], digits = 2)
+  }
+    }
+coint_tab <- coint_tab %>% stargazer::stargazer(title = "Results of the Johansen cointegration test",
+                                   style = "aer",
+                                   notes = "Regression with a constant and two lags")
+
+```
+
+```{r, results = 'asis'}
+coint_tab[4:length(coint_tab)] %>% cat() 
+```
+
+As we can see from Table 1, there seems to be a single cointegrating vector. Retrieveing the cointegrating vector from the linear VECM model, the test of no cointegration versus threshold cointegration can be checked using the methods of @seo2006bootstrap. In such a case, I consider if the model without cointegration can be rejected versus a model using the error correction term as the threshold value using a pre-specified cointegrating vector. For this purpose I am using the cointegrating vector retrieved from the linear VECM model.  
+
+```{r, fig.cap="Testing for threshold cointegration" }
+vec <- VECM(data, lag  =2, r = 1, estim = "2OLS", include = "none") %>% 
+  summary()
+
+coint <- vec$model.specific$coint[2:length(vec$model.specific$coint)]
+
+
+TVECM.SeoTest(data, lag = 2, beta = -1*vec$model.specific$coint[2:length(vec$model.specific$coint)],
+              nboot = nboot_vec, plot = TRUE)
+```
+
+As we can see from the plotted test statistics above, the null of no cointegration cannot be rejected against the alternate hypothesis of threshold cointegration. 
+
+\newpage
+
+
+\textbf{Testing for non-linearity with a VAR model}
+
+Failing to reject the null of no cointegration versus threshold cointegration begs the question if the nonlinear relationship itself exists. With a simpler, which can be done with a modified version of @hansen1999testing as implemented by @stigler2019. The results of this likelihood-ratio tests can be seen below:
+
+```{r, fig.cap = "Bootstrapped LR test for non-linearity"}
+data <- import %>% 
+  dplyr::select(ffr, m30, hloan, gdp, hprice) %>% 
+  mutate(hloan = hloan - lag(hloan),
+         gdp = gdp - lag(gdp),
+         hprice = hprice - lag(hprice)) %>% drop_na() %>% ts()
+
+par_orig <- c(5.1, 4.1, 4.1, 2.1)
+par_large <- c(2,2,2,2)
+par(mar = par_large)
+TVAR.LRtest(data, lag = 1, mTh = 5, plot = TRUE, nboot = 1000)
+dev.off()
+par(mar = par_orig)
+```
+
+As the test suggests, against a linear VAR, neither a two or three regime VAR can be rejected, which further validates the results outlined in the paper. 

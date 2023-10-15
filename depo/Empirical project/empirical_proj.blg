@@ -1,0 +1,17 @@
+[0] Config.pm:311> INFO - This is Biber 2.16
+[0] Config.pm:314> INFO - Logfile is 'empirical_proj.blg'
+[180] biber-MSWIN64:340> INFO - === 
+[246] Biber.pm:415> INFO - Reading 'empirical_proj.bcf'
+[493] Biber.pm:952> INFO - Found 13 citekeys in bib section 0
+[528] Biber.pm:4340> INFO - Processing section 0
+[550] Biber.pm:4531> INFO - Looking for bibtex format file 'ref.bib' for section 0
+[632] bibtex.pm:1689> INFO - LaTeX decoding ...
+[680] bibtex.pm:1494> INFO - Found BibTeX data source 'ref.bib'
+[730] Utils.pm:395> WARN - legacy month field 'Mar' in entry 'iacoviello2007' is not an integer - this will probably not sort properly.
+[861] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[861] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[861] Biber.pm:4168> INFO - Sorting list 'nyt/global//global/global' of type 'entry' with template 'nyt' and locale 'en-US'
+[861] Biber.pm:4174> INFO - No sort tailoring available for locale 'en-US'
+[884] bbl.pm:654> INFO - Writing 'empirical_proj.bbl' with encoding 'UTF-8'
+[893] bbl.pm:757> INFO - Output to empirical_proj.bbl
+[894] Biber.pm:128> INFO - WARNINGS: 1
