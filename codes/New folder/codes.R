@@ -5,7 +5,7 @@ library(tsDyn)
 library(urca)
 library(lubridate)
 library(remotes)
-install_github("angusmoore/tvarGIRF")
+#install_github("angusmoore/tvarGIRF")
 library(tvarGIRF)
 
 
@@ -31,7 +31,7 @@ import  <- pmap_dfr(
                        m30 = MORTGAGE30US,
                        hprice = QUSR628BIS) %>%
   drop_na() %>% 
-  filter(date <= as.Date("2021-12-01")) %>% 
+  #filter(date <= as.Date("2021-12-01")) %>% 
   left_join(
 fredr("GDPC1",
              frequency = "q") %>% 
@@ -92,7 +92,7 @@ johansen <- ca.jo(data, type = "trace", K = 2, spec = "longrun", ecdet = "none")
 
 
 coint_tab <- johansen@cval %>% 
-  as.tibble() %>% 
+  as_tibble() %>% 
   mutate(test = johansen@teststat) %>% 
   dplyr::select(test, everything()) %>% 
   as.matrix()
@@ -147,7 +147,7 @@ varcoef <- bind_rows(
 #chol <- chol(cov_mat)
 #ffrshock <- chol[1,] / chol[1,1]
 
-source("SVAR2.R")
+source("codes/SVAR2.R")
 struct_shock <- function(var, data, amat, bmat, estmethod){
   x <- SVAR2(var = var, data = data,
              Amat = amat,
