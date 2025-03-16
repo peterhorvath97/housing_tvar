@@ -76,100 +76,98 @@ x13adj <- function(value, freq, date){
 
 fredr_set_key("cda47ae66b38ed7988c0a9c2ec80c94f")
 
-# House & rent prices block
-data <- fredr('CSUSHPISA') %>% 
-  select(date, HP = value) %>% 
-  drop_na() %>% 
-  transform_to_base_index(base_year = 2015) %>% 
-  inner_join(
-    fredr('CUSR0000SEHA') %>% 
-      select(date, R = value) %>% 
-      drop_na() %>% 
-      transform_to_base_index(base_year = 2015)
-    
-  ) %>% 
-  inner_join(
-    fredr('CUUR0000SA0L2') %>% 
-      select(date, P = value) %>% 
-      drop_na() %>% 
-      transform_to_base_index(base_year = 2015)
-  ) %>% 
-  mutate(HP = 100*HP/P, 
-         R = 100*R/P) %>% 
-  select(-P) 
 
-
-
-data %>% 
-  gather(var, value, -date) %>% 
-  ggplot(aes(x = date, y = value, color = var)) +
-  geom_line(linewidth = 1)
-
-
-data %>% 
-  gather(var, value, -date) %>% 
-  group_by(var) %>% 
-  mutate(value = value-lag(value)) %>% 
+data <- fred_query(ids = 
+                 c('QUSR628BIS',
+                   'MORTGAGE30US',
+                   'REALLN',
+                   'FEDFUNDS',
+                   'GDPC1',
+                   'PCEPI',
+                   'GS10', 'GS1',
+                   'BAA', 'AAA'
+                   ),
+           'q')
+R <-read_excel('data/shadowrate_US.xls', col_names = F) %>% 
+  rename(date = ...1,
+         R = ...2) %>% 
+  mutate(date = paste(
+    substr(date, 1,4), 
+    substr(date, 5,6),
+    '01', sep = '-') %>% as_date()) %>% 
+  mutate(year = year(date),
+         quarter = quarter(date)) %>% 
+  group_by(year, quarter) %>% 
+  mutate(R = mean(R)) %>% 
   ungroup() %>% 
-  ggplot(aes(x = date, y = value, color = var)) +
-  geom_line(linewidth = 1)
-
-
-data %>% 
-  mutate(ret = (R+HP-lag(HP))/lag(HP)) %>% 
-  ggplot(aes(x = date, y = ret)) +
-  geom_line(linewidth = 1)
-
-
-data %>% 
-  mutate(rp = log(R) - log(HP)) %>% 
-  ggplot(aes(x = date, y = rp)) +
-  geom_line(linewidth = 1)
+  mutate(date = paste(
+    year(date),
+    case_when(quarter == 1 ~ '01',
+              quarter == 2 ~ '04',
+              quarter == 3 ~ '07',
+              quarter == 4 ~ '10'),
+    '01', sep = '-') %>% as_date()) %>% 
+  distinct(date, R)
 
 data <- data %>% 
-  mutate(RP = log(R) - log(HP))
+  mutate(MR = MORTGAGE30US,
+         CS = BAA-AAA,
+         TS = GS10 - GS1,
+         HL = REALLN,
+         HP = QUSR628BIS,
+         P = PCEPI,
+         Y = GDPC1) %>% 
+  inner_join(R) %>% 
+  select(date, R, MR, CS, TS, HL, HP, P, Y) %>% 
+  mutate(Y = log(Y), 
+         HL = log(HL))
+
+#data <- data %>% select(-CS,-TS)
 
 
-# Real econ block
-macro <- fred_query(ids = c('FEDFUNDS', 'CPIAUCSL', 'INDPRO'), freq = 'm') %>% 
-  rename(P = CPIAUCSL,
-         i = FEDFUNDS,
-         Y = INDPRO) %>% 
-  transform_to_base_index(c('P', 'Y'), 2015)
+rent_price <- fred_query(ids = 
+                     c('QUSR628BIS',
+                       'CUUR0000SEHA',
+                       'CUUR0000SA0L2'),
+                   'q')
 
-# Consumption
-
-cons <- fred_query(ids = c('PCE', 'PCEPI'), freq = 'm') %>% 
-  transform_to_base_index(variables = 'PCEPI', 2015) %>% 
-  mutate(C = 100*PCE/PCEPI) %>% 
-  select(date, C)
-
-# Mortgage market block
-
-mort <- fred_query(ids = c('MORTGAGE30US', 'RHEACBW027SBOG'), freq = 'm') %>% 
-  rename(MR = MORTGAGE30US,
-         HL = RHEACBW027SBOG) 
-
-# Exogenous regressors
-
-exog <- fred_query(ids = c('POPTHM', 'PAYEMS'), freq = 'm') %>% 
-  rename(POP = POPTHM,
-         EMP = PAYEMS)
-
-out <- data %>% 
-  inner_join(macro) %>% 
-  inner_join(mort) %>% 
-  inner_join(cons) %>% 
-  inner_join(exog) %>% 
-  mutate(across(c(HP, R, P, Y, HL, C, EMP, POP), ~100*.x/lag(.x,12)-100 )) %>% 
-  drop_na() 
+rent_price <- rent_price %>% 
+  transform_to_base_index(c('CUUR0000SEHA', 'QUSR628BIS', 'CUUR0000SA0L2'), 2015) %>% 
+  mutate(CUUR0000SEHA = 100*CUUR0000SEHA/CUUR0000SA0L2,
+         RP = log(CUUR0000SEHA) - log(QUSR628BIS)) %>% 
+  select(date, RP) 
 
 
-out %>% 
-  gather(key, value, -date) %>% 
+
+data <- inner_join(data, rent_price)
+
+
+p1 <- data %>% 
+  ggplot(aes(x = date, y = RP)) +
+  geom_line(linewidth = 1) +
+  theme_minimal() +
+  labs(x = '', y = '') 
+ggsave('figures/rent_price.pdf', p1)
+
+p2 <- data %>% 
+  select(-RP) %>% 
+  gather(var, value, -date) %>% 
+  mutate(var = case_when(var == 'CS' ~ 'Credit Spread',
+                         var == 'HP' ~ 'Property Prices',
+                         var == 'P' ~ 'Consumer Prices',
+                         var == 'TS' ~ 'Term Spread',
+                         var == 'HL' ~ 'Real Estate Loans',
+                         var == 'MR' ~ 'Mortgage Rate',
+                         var == 'R' ~ 'Shadow Rate',
+                         var == 'Y' ~ 'GDP')) %>% 
   ggplot(aes(x = date, y = value)) +
-  geom_line() +
-  facet_wrap(~key, scales = 'free')
+  geom_line(linewidth = 1) +
+  facet_wrap(~var, scales = 'free', ncol = 2) +
+  theme_minimal() +
+  labs(x = '', y = '')
+ggsave('figures/data_tsplots.pdf', p2)
 
-out
+
+data
+
 }
