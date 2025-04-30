@@ -11,8 +11,6 @@ library(meboot)
 
 source('codes/data.R')
 source('codes/tvarestfuns.R')
-Sys.setenv(http_proxy = "http://proxy-bc.beilux.eib.org:8080")
-Sys.setenv(https_proxy = "http://proxy-bc.beilux.eib.org:8080")
 data <- data()
 
 ts_orig <- data %>% 
