@@ -1,0 +1,335 @@
+---
+title: "Nonlinear Transmission of Monetary Policy and Housing Market Imbalances: Evidence from a Factor-Augmented Threshold VAR Analysis"
+author: "Péter Horváth"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+    includes:
+      in_header: "preamble.tex"
+fontsize: 12pt
+bibliography: "ref.bib"
+csl: "custom-citations.csl"
+link-citations: true
+linkcolor: "blue"
+geometry: "a4paper,outer=25mm,inner=35mm,top=25mm,bottom=25mm"
+abstract: "In recent decades, persistently low rates have driven housing booms and prompted questions on how market imbalances shape policy effects. In this paper, I investigate how such imbalances affect the monetary transmission in the United States. I create a stress indicator from the rent‑price ratio and credit‑to‑GDP gap, then embed it in a factor‑augmented threshold VAR with two regimes to isolate periods of high stress. I show that this framework consistently flags emerging housing bubbles. Regime‑specific generalized impulse responses show somewhat larger contractions under adverse conditions, confirming the existence of the financial accelerator effect along the housing cycle. Furthermore, monetary conditions are eased more gradually around forming bubbles, suggesting that macro-financial signals should be incorporated in policy frameworks to effectively manage deleveraging high market pressure."
+
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      results = FALSE)
+```
+
+
+
+
+\textbf{Keywords:} Housing market, Monetary policy, Threshold Vector Auto-Regression, Latent factors, Generalized Impulse Responses 
+
+\textbf{JEL:} E32, E44, E52, C32
+
+\newpage
+
+# Introduction
+
+
+Housing markets have long been recognized as a core component of business cycles, not only because residential investment represents a sizeable fraction of overall economic activity, but also due to their significant interaction with credit cycles and monetary policy. In recent decades—especially during the low interest rate era following the Global Financial Crisis (GFC)—there has been an unprecedented expansion in credit and real estate lending. This boom, in turn, fueled rapid increases in property prices and raised concerns over the emergence of housing bubbles. Against the current backdrop of persistently high inflation, central banks have shifted to tighter monetary stances, prompting a critical question for policymakers and researchers alike: can interest rate hikes burst the housing bubble?
+
+The motivation for this study stems from both empirical and policy-related challenges. First, a deeper understanding of the interaction between housing markets and monetary policy is essential, as housing is a leading indicator of broader economic imbalances. Historical episodes—such as the housing price bubble identified by @case2003there and subsequent market corrections—illustrate how sustained deviations from fundamental values can precipitate severe economic downturns. @kydland2016housing provides empirical evidence that residential investment is not only a leading indicator, but also a critical driver of business cycle fluctuations. @adelino2018role surveys the crucial role that mortgages and inflated house prices played in the GFC, and the literature review by @duca2021drives compiles evidence that housing cycles are closely linked to broader business cycle dynamics at the international level.
+
+Second, there remains considerable ambiguity regarding the nonlinear transmission mechanisms through which monetary policy shocks affect the economy. @li2010financial investigate Canadian monetary transmission and find strong state-dependent dynamics in the presence of financial stress. @fry2016effects report similar findings for U.S. monetary transmission during crises. @schmidt2020risk examines nonlinear monetary transmission in European asset markets and also finds stronger responses during periods of high stress. Traditional linear models may overlook important regime-dependent dynamics—particularly how shocks interact with underlying market vulnerabilities.
+
+Third, the study is motivated by the three-way interplay between housing markets, monetary policy, and financial conditions. The seminal work of @bernanke1999financial on the financial accelerator illustrates how credit market imperfections can magnify the effects of monetary shocks. Papers by @iacoviello2005house, @iacoviello2008credit, and @mian2011house examine the interaction between housing, monetary policy, and borrowing constraints. These studies show that house price fluctuations can amplify aggregate demand via collateral effects that influence borrowing capacity. Together, they highlight the importance of credit market frictions in shaping housing dynamics.
+
+Although the low interest rate environment post-2008 encouraged lending and inflated asset prices, the subsequent rise in inflation has forced a reversal in monetary policy. This tightening may have profound implications for speculative pressures in housing markets. When central banks raise rates in a highly leveraged and credit-sensitive economy, prior research suggests that the impact may be amplified under high-stress conditions. By introducing a state-dependent Threshold Vector Autoregressive (TVAR) framework, this study aims to identify and quantify such nonlinearities. In doing so, it contributes to the literature on the heterogeneous effects of policy interventions in overheated versus stable market conditions, as well as on the evolution of housing market imbalances. Rising home prices, in turn, have been shown to be closely linked to financial stress and to serve as early warning indicators of broader economic downturns.
+
+This paper presents a natural continuation of the existing literature. Using the rent-price ratio and the credit-to-GDP gap as measures of real estate and credit market imbalances, I construct a synthetic index of housing-related financial stress using principal component analysis (PCA). This composite indicator is embedded into a Factor-Augmented TVAR (TFAVAR) model to identify forming bubbles in the real estate market and to trace regime-specific impulse responses to monetary shocks across a carefully selected set of variables. These impulse responses are estimated using Generalized Impulse Responses that account for regime switches. The results indicate the presence of regime-dependent effects of monetary policy shocks, although the differences across regimes are relatively modest. Importantly, the behavior of monetary policy appears to shift significantly depending on the state of the economy. During periods of high housing stress, the policy stance remains tighter for longer, and interest rates adjust more gradually—reflecting the Federal Reserve’s cautious approach to navigating financial and housing market imbalances. These findings suggest that monetary policy must account for prevailing economic conditions to effectively manage the process of deleveraging, particularly during housing booms.
+
+The remainder of this paper is structured as follows. Section 2 describes the dataset, which comprises quarterly U.S. data from 1970Q2 to 2024Q3 and includes real aggregates, financial stress measures, and housing market variables. Section 3 outlines the methodological framework, including the construction of the composite housing stress indicator and the estimation of the TVAR model. Section 4 presents the empirical results, focusing on the nonlinear transmission of monetary policy shocks. Section 5 concludes with a discussion of the implications and directions for future research.
+
+
+
+
+# Data {#sec:data}
+
+To fully capture complex macro-financial dynamics, I construct a quarterly dataset consisting of real aggregates, financial stress indicators, and housing market variables for the United States from 1970Q2 to 2024Q3. The dataset contains 10 variables: Real GDP (Y), Consumer Prices (P), Real Property Prices (HP), Rent-price ratio (RP), Real Estate Loans (HL), Mortgage Rate (MR), Federal Funds Rate (R), Term Spread (TS), Credit Spread (CS), and Credit-to-GDP Gap (CGG).
+
+
+To account for the continuity of monetary policy action during periods when nominal rates are constrained by the Zero-Lower-Bound, the @wu2016measuring shadow rate is used in place of the observed Federal Funds Rate values. The term spread, calculated as the yield on 10-year minus the yield on 1-year Treasury bills, serves as a measure of expectations about future interest rate fluctuations. The credit spread is calculated as the return on BAA minus AAA-rated corporate bonds and is useful for tracking episodes of financial stress or tight financial conditions.
+
+
+
+The rent-price ratio serves as a valuation metric of the housing market aimed at capturing potential misalignments between property prices and economic fundamentals. I calculate the rent-price ratio as \linebreak
+$\ln(\text{Real Rental Index}) - \ln(\text{Real Property Prices Index})$, 
+where the Real Rental Index is 
+$\frac{\text{CPI: Rent of primary residence}}{\text{CPI: All items less shelter}}$. 
+The Credit-to-GDP gap serves as an indicator of credit cycle imbalances and helps detect periods of excessive lending relative to long-run trends. CGG is defined as the deviation of 
+$\frac{\text{Credit}_{t}}{\text{GDP}_{t}}$ 
+from its long-run trend and is calculated using an HP filter.
+
+All data except the CGG series are downloaded from the FRED database. The CGG series is downloaded from the BIS data portal. Variables Y, P, HP, and HL are log-normalized. All variables except R are scaled to zero mean and unit standard deviation. Table \ref{tab:variables} below summarizes the variables and transformation steps:
+
+
+\newpage
+
+\begingroup
+\renewcommand{\baselinestretch}{1}\normalsize
+\begin{landscape}
+\begin{table}[H]
+\centering
+\begin{tabular}{>{\centering\arraybackslash}p{4.5cm} >{\centering\arraybackslash}p{1cm} >{\centering\arraybackslash}p{8cm} >{\centering\arraybackslash}p{4.5cm} >{\centering\arraybackslash}p{1cm}}
+\textbf{Variable} & \textbf{Symbol} & \textbf{Definition / Calculation} & \textbf{Transformation} & \textbf{Data Source} \\
+\midrule
+Real GDP & $Y$ & Real Gross Domestic Product & Log-level, scaled to zero mean and unit std. & FRED \\
+Consumer Prices & $P$ & Consumer Price Index & Log-level, scaled to zero mean and unit std. & FRED \\
+Real Property Prices & $HP$ & Real Property Prices Index & Log-level, scaled to zero mean and unit std. & FRED \\
+Rent-Price Ratio & $RP$ & $\ln(HP) - \ln\left(\frac{\text{CPI: Rent of primary residence}}{\text{CPI: All items less shelter}}\right)$ & Scaled to zero mean and unit std. dev. & FRED \\
+Real Estate Loans & $HL$ & Total Real Estate Loans & Log-level, scaled to zero mean and unit std. & FRED \\
+Mortgage Rate & $MR$ & Mortgage interest rate & Levels, scaled to zero mean and unit std. & FRED \\
+Federal Funds Rate / Shadow & $R$ & Nominal Federal Funds Rate; replaced with shadow rate during ZLB periods & Entered in levels & FRED \\
+Term Spread & $TS$ & Difference between 10-year and 1-year Treasury yields & Levels, scaled to zero mean and unit std. & FRED \\
+Credit Spread & $CS$ & Difference between BAA and AAA corporate bond yields & Levels, scaled to zero mean and unit std. & FRED \\
+Credit-to-GDP Gap & $CGG$ & Deviation of $\frac{\text{Credit}_t}{\text{GDP}_t}$ from trend (HP filter) & Scaled to zero mean and unit std. dev. & BIS \\
+\bottomrule
+\end{tabular}
+\caption{Variable definitions and transformations}
+\label{tab:variables}
+\end{table}
+\end{landscape}
+\endgroup
+
+\newpage
+
+# Methodology
+
+This section outlines the analytical framework used in the paper. The methodological challenges are threefold: (i) credibly quantifying housing market stress and bubbles; (ii) modeling nonlinear dynamics; and (iii) correctly capturing the propagation of monetary policy shocks in a nonlinear system. Threshold-type models are well-established for handling nonlinearities in empirical macroeconomics (see @hansen1999testing, @hansen2000sample, @lo2001threshold, @caner2001threshold, @hansen2002testing, @hansen2011threshold). Generalized impulse response functions (GIRFs), introduced by @koop1996impulse, offer a way to analyze dynamic responses in such settings. I closely follow the GIRF implementation methods of @andreasen2021does. Lastly, composite indicators are widely used in empirical macro for tracking financial stress or business cycle conditions (see @estrella1998predicting, @stock1989new, @bai2002determining, @european2008handbook, @hatzius2010financial, @koop2014new).
+
+
+## Quantifying Housing Market Stress {#subsec:indicator}
+
+Speculative pressures in housing markets tend to arise from the interaction of credit expansion and housing overvaluation. I propose a framework that captures this joint dynamic using two core measures: the credit‐to‐GDP gap (CGG), which signals excessive credit growth, and the rent–price ratio (RP), which reflects deviations of housing prices from rental fundamentals. While each measure is informative on its own, they are susceptible to measurement error and idiosyncratic variation. To synthesize their shared signal and reduce noise, I construct a composite indicator using principal component analysis (PCA).
+
+The use of such composite indicators is well grounded in the literature. For example, @borio2009assessing and @drehmann2014evaluating aggregate various imbalance indicators into early warning measures for financial crises. Similarly, @alessandri2019financial employ a nonlinear VAR framework centered around a composite financial stress index, and @auerbach2012measuring use a smooth transition VAR based on a composite business cycle indicator.
+
+
+Construction of the housing stress indicator begins with standardized series (as seen the [Data](#sec:data) section): both the CGG and RP series are scaled to have zero mean and unit variance, since PCA is scale-sensitive. The standard PCA procedure involves decomposing the covariance matrix of these inputs. The eigenvector corresponding to the largest eigenvalue provides the linear combination that maximizes shared variance:
+
+ \begin{equation}
+ 	PC1 = w_1CGG+w_2RP\label{eq:pca_eq}
+ \end{equation}
+
+where $w_1$ and $w_2$ are the weights from the leading eigenvector. This first principal component (PC1) thus captures the joint variation in credit and housing price signals, functioning as a latent factor representing the simultaneous emergence of credit excess and housing overvaluation. The resulting time series is shown in Figure \ref{fig:housingstress}.
+
+
+```{=latex}
+\begin{figure}[H]
+
+\begin{center}
+\includegraphics[width=0.7\textwidth]{../figures/pcaplot.pdf}
+\end{center}
+
+
+\caption{An indicator of housing market stress \label{fig:housingstress}}
+\bigskip
+\footnotesize
+\end{figure}
+```
+
+
+PC1 explains roughly 61% of the shared variance. While this leaves 39% of the variation unexplained — which may raise concerns about missing relevant dynamics — a visual inspection suggests that the index rises precisely when credit expansion accelerates and house prices decouple from fundamentals. It therefore provides a theoretically grounded and practically useful measure of housing market stress.
+
+
+## Threshold VAR Estimation and Identification {#subsec:tvar}
+
+Nonlinear models are becoming staples in empirical macroeconomics, especially when assessing how aggregate dynamics shift during episodes of financial strain, heightened uncertainty, or outright recessions. For example, @schuler2014asymmetric and @lhuissier2016uncertainty show that uncertainty shocks matter far more when the banking sector is already under pressure. Likewise, @chiu2016macroeconomic finds that financial shocks in downturns spark disproportionately larger contractions, while @ferraresi2015fiscal and @afonso2018fiscal use TVAR frameworks to uncover that fiscal multipliers are larger when credit conditions tighten. More recently, @kole2023moments finds that financial stress shocks have stronger impacts in bearish markets and during recessionary times, and @mittnik2018overleveraging document how leverage cycles can destabilize macro dynamics.
+
+
+Across these studies, scholars have adopted a variety of empirical models to capture nonlinear behavior. The threshold VAR (TVAR) stands out for its transparency and modest computational demands. Unlike Markov-switching VAR (MSVAR) and Time-Varying Parameter VAR (TVP-VAR) models, which capture regime changes via latent processes or gradually evolving coefficients, the TVAR explicitly splits the sample based on an observed variable. The explicit regime separation makes the interpretations very clear, as the differing propagation of shocks can be directly attributed to the state of the economy as identified by the regimes. The straight forward interpretation as well as the relative computational ease makes the TVAR and ideal choice for modeling the nonlinear transmission of monetary policy across the housing cycle.
+
+Naturally, no empirical method is without its drawbacks. Firstly, the state of the economy is more accurately represented by a smooth spectrum, rather than black and white worldview of the binary regime indicator suggested by the TVAR. Secondly, the selection of the optimal threshold level is very sensitive to the empirical distributions of the series used in the estimation. Changes in these distribution can reshape the regime classification entirely, which makes creating accurate confidence bands through bootstrap resampling a difficult task. Thirdly, the TVAR substantially reduces degrees of freedom, as it essentially doubles the number of estimated parameters (assuming there are two regimes).
+
+As shown in the [Results](#sec:results) Section, the regime switches are not at all abrupt, and the regimes do indeed have a clear interpretation, as such I see no reason to address the first shortcoming of the TVAR model by introducing smoother transitions. I address the second shortcoming - regarding sensitivity to empirical data distribution - in the [next](#subsec:girf) subsection. As for the issue of over-parametrization, I adopt a dimensionality-reduction strategy using Factor-Augmented VARs (FAVAR), originally proposed in @bernanke2005measuring.
+
+A standard FAVAR can be estimated using two steps. First, a small number of latent factors are extracted (typically) from a large panel of observed variables. These factors can be extracted using different techniques, such as principal components or dynamic factor models. For the purposes of this paper I rely on PCA to extract the factors. Second, a VAR model is fit on variables (typically) excluded from the factor extraction step and the extracted latent factors. This two stage approach has the benefit significantly reducing dimensionalty, while retaining the majority of the shared variance across a number of variables. As the second step suggests, the FAVAR at its core is a standard VAR estimated using latent factors, which makes its combination with the TVAR estimation steps straight forward.
+
+
+Although FAVARs often draw on hundreds of series, my threshold FAVAR (TFAVAR) relies on just seven indicators (Y, P, HP, HL, MR, TS, and CS) in the factor extraction process. While unusual, this streamlined setup remains consistent with the original motivation behind the FAVAR model: overcoming the standard VAR's curse of dimensionality without sacrificing informational richness. By focusing on these seven series, I preserve a relatively parsimonious framework that captures the main transmission channels of monetary policy while also incorporating aggregates relevant for the housing market.
+
+I extract three principal components, which jointly explain around 93% of the variance across the seven variables, as shown in Table \ref{tab:variance}. These three factors, together with the interest rate and housing stress indicator, form a 5-variable TFAVAR. I define the list of endogenous variables $y_t$ as the interest rate as well as the [Housing Stress Indicator](#subsec:indicator), and the list of factors $f_t = [F1, F2, F3]$ as the first three principal components extracted.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lccc}
+\toprule
+ & \textbf{F1} & \textbf{F2} & \textbf{F3} \\
+\midrule
+\% of Variance       & 63.936\%  & 15.589\%  & 13.990\%  \\
+Cumulative \%        & 63.936\%  & 79.524\%  & 93.515\%  \\
+\bottomrule
+\end{tabular}
+\caption{Variance Explained by Principal Components}
+\label{tab:variance}
+\end{table}
+
+Factor loadings in Table \ref{tab:loadings} help interpret each component. F1 loads positively on real GDP, prices, real estate loans, and house prices, and negatively on mortgage rates. It captures broad real economy and housing market conditions. F2 loads heavily on the term spread and, to a lesser extent, on credit spreads — a yield-curve and risk sentiment factor. F3 emphasizes credit spreads and also reflects term spreads and mortgage rates, capturing broader financial stress and borrowing conditions.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrrrrrr}
+\toprule
+        & \multicolumn{3}{c}{\textbf{Loadings}} & \multicolumn{3}{c}{\textbf{Contributions (\%)}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+\textbf{Variable} & \textbf{F1} & \textbf{F2} & \textbf{F3} & \textbf{F1} & \textbf{F2} & \textbf{F3} \\
+\midrule
+MR & -0.806 & -0.077 &  0.366 & 14.51 &  0.54 & 13.68 \\
+CS & -0.357 &  0.464 &  0.781 &  2.85 & 19.74 & 62.23 \\
+TS &  0.179 &  0.910 & -0.340 &  0.71 & 75.90 & 11.81 \\
+HL &  0.981 &  0.058 &  0.140 & 21.52 &  0.30 &  2.01 \\
+HP &  0.906 & -0.186 &  0.234 & 18.36 &  3.16 &  5.61 \\
+P  &  0.950 &  0.063 &  0.181 & 20.18 &  0.36 &  3.36 \\
+Y  &  0.989 & -0.006 &  0.113 & 21.87 &  0.00 &  1.31 \\
+\bottomrule
+\end{tabular}
+\caption{Loadings and Contributions for Factors 1–3}
+\label{tab:loadings}
+\end{table}
+
+
+
+With the above derived factors and the remaining variables in mind, we can write the reduced form TFAVAR as seen in Equation \ref{eq:tvar} below:
+ \begin{equation}
+ \begin{bmatrix} y_t \\ f_t \end{bmatrix} =  \Theta_{1}I(x_{t-1} \geq \gamma)\begin{bmatrix} y_{t-1} \\ f_{t-1} \end{bmatrix} + \Theta_{2}I(x_{t-1} < \gamma)\begin{bmatrix} y_{t-1} \\ f_{t-1} \end{bmatrix} + u_{t}, \label{eq:tvar}
+ \end{equation}
+where $\Theta_{i}$ are the matrices of regime specific coefficients, $I(.)$ is the regime indicator, $\gamma$ is the threshold value and $u_t$ are the reduced form residuals. $x_t$ is the threshold variable which in our case is the housing stress indicator. This specification defines a two-regime TVAR, where we can interpret one of the regimes as a state of turmoil for the housing market, while the other being more tranquil times. The TVAR model is linear in parameters for a fixed threshold value $\gamma$ and fixed threshold variable $x_t$ and can be estimated using Conditional Least Squares. The threshold value is set to $\gamma = \gamma^*$, where $\gamma^*$ is the optimal threshold value obtained using a grid search that minimizes the residual sum of squares.
+
+
+Shocks are identified using the state-of-the-art sign restriction methodology of @arias2018inference. After estimating the reduced-form TFAVAR and obtaining the Cholesky factor $\Sigma$ of the residual covariance matrix, I construct an orthonormal rotation matrix $Q$ in the five-dimensional factor space. I then impose the following zero-horizon sign restrictions on the observed variables: $[R:+,\ TS:-,\ CS:+,\ MR:+,\ HL:-,\ CGG:-,\ P:-,\ HP:-,\ RP:+,\ Y:\text{no restriction}]$.\footnote{Note that a standard FAVAR with recursive ordering already resolves the price puzzle and produces plausible responses for GDP and inflation. Here, additional sign restrictions are imposed to ensure that the contemporaneous effects on financial variables align with theoretical expectations.} The structural impact matrix $\Sigma Q$ is mapped back to the space of observed variables using the factor loadings, allowing for verification that the imposed signs hold. As permitted by the TVAR framework, this identification procedure is implemented on a regime-specific basis, allowing the initial Cholesky factor $\Sigma$ to vary across regimes. In practice, the IRFs at the zero horizon however turn out to be near identical for most of the observed variables.
+
+
+## Generalized Impulse Response Analysis {#subsec:girf}
+
+A challenge in nonlinear VAR modeling is a good representation of the impulse responses. While the regime-wise orthogonalized impulse responses are relatively informative in showcasing the different dynamics across the two regimes, they do not account for the regime switches themselves. Following the work of @koop1996impulse, GIRFs are an appropriate tool to fully account for the dynamics of TVAR models. To construct the set of GIRFs, I closely follow algorithm outlined for the Interacted-VAR model of @andreasen2021does. Specifically, the GIRFs for $y_{t}$ at horizon $h$ to a monetary policy shock $\epsilon_{monpol}$ can be defined as
+
+\begin{equation}
+GIRF_{y}(h,\epsilon_{monpol},x_{t-1}) \equiv E_t(y_{t+h}|\epsilon_{monpol}, x_{t-1}) - E_t(y_{t+h}|x_{t-1}) \label{eq:girf}
+\end{equation}
+
+With the above definition in mind, the GIRFs depend on the regime which is defined using the relation of $x_{t-1}$ to the threshold value $\gamma$. I construct a set of GIRFs for both regimes using the following algorithm:
+```{=tex}
+\bgroup
+\renewcommand{\baselinestretch}{1}\normalsize
+```
+\begin{itemize}
+\item I randomly sample $K = 100$ realizations of the residuals $u_t$ from regime 1.
+\item For each random draw $K$, I simulate the $h$ period ahead forecast $y_{t+h}|x_{t-1}$ for $h = 0:20$.
+\item For each random draw $K$, I simulate the $h$ period ahead forecast $y_{t+h}|\epsilon_{monpol}, x_{t-1}$ for $h = 0:20$ by adding $\epsilon_{monpol}$ to the randomly sampled realization of residual $u_t$, then I calculate $GIRF_{y}$ using Equation \ref{eq:girf}.
+\item I repeat steps 1-3 for $H = 100$ randomly sampled histories (starting points) from regime 1 take and the average of the obtained GIRFs $\overline{GIRF_{y}}(h,\epsilon_{monpol},x_{t-1}) = \sum_{1}^{H}\sum_{1}^{K}\frac{1}{H}\frac{1}{K}GIRF_{y}(h,\epsilon_{monpol},x_{t-1})$.
+\item I repeat the process for regime 2.
+\end{itemize}
+```{=tex}
+\egroup
+```    
+
+
+As this procedure is executed in the dimensions of the five-equation TFAVAR, I first compute the GIRFs for the latent factors, then use the estimated factor loadings (weights) to recover the responses of the original series. Using this same approach, I disaggregate the housing market stress indicator into its two components—RP and CGG—yielding ten GIRF sets per regime. These are presented in the [Results](#sec:results) section. All variables except the policy rate (R) are shown in standardized units, reflecting the data normalization prior to factor extraction. The policy rate, which remains in levels, is displayed in percentage points.
+
+
+To compute confidence bands, I substantially modify the GIRF algorithm of @andreasen2021does. As discussed in [Section \ref{subsec:tvar}], threshold models are highly sensitive to the empirical data distribution. Rather than using conventional residual-based or moving-block bootstraps—common in the VAR literature—I apply the Maximum Entropy Bootstrap (MEB) of @vinod2006maximum. MEB preserves the sample mean and rank correlation structure of the original series, does not require stationarity or detrending, and ensures compliance with the ergodic and central limit theorems. These properties make the MEB ideal for keeping the regime classifications consistent across bootstrap replications, while also allowing for full estimation uncertainty of the threshold paramater.
+
+The MEB tends to have high computational requirements due to the need for sorting and repeated density estimation, this overhead however, is modest relative to the time requirement of computing the GIRFs themselves.  While MEB may appear to "cheat" by producing near-exact replicates—thanks to its enforcement of perfect rank correlation—this is not intended to artificially narrow the confidence bands. Rather, the goal is to ensure stable regime classification across bootstrap samples. A more conventional bootstrap method might be statistically appealing, but without regime classification stability, the resulting confidence bands lose interpretive value. To maximize variability, I generate MEB replicates at the level of the observed variables, allowing factor loadings to vary. The threshold parameter $\gamma^*$ is also re-estimated freely for each bootstrap sample. For the purposes of this study I create 2000 MEB replicates to construct the GIRF confidence bands.
+
+```{=latex}
+\begin{figure}[H]
+
+\begin{center}
+\includegraphics[width=\textwidth]{../figures/thresholds.pdf}
+\end{center}
+
+
+\caption{Threshold value and regime stability \label{fig:thclass}}
+\bigskip
+\footnotesize 
+\textit{Notes}: Panel (a) shows the estimated threshold value density form the bootstrap exercise. The dashed red line indicates the "true" threshold value estimated from the original data. Panel (b) shows the regime classification from the bootstrap exercise. True regime classifications estimated using the original data.
+\end{figure}
+```
+
+
+As shown in Panel (a) of Figure \ref{fig:thclass}, the bootstrap distribution fully captures estimation uncertainty around the threshold value $\gamma$. The “true” threshold computed on the original data coincides with one of the two modes in the bi-modal distribution. Panel (b) reports regime-classification accuracy: in over 90 percent of bootstrap samples, each quarter is assigned to the same regime as in the observed data. Of the remaining 9.4 percent, about 8.3 percent are false positives and only 1.1 percent are false negatives. In practice, these false positives serve as conservative, early warnings of rising housing-market stress, while the low false-negative rate means genuine stress episodes are rarely overlooked. The secondary, lower peak in the threshold value distribution therefore poses no concern — it simply reflects the model’s tendency to signal high-stress episodes slightly earlier.
+
+
+# Results {#sec:results}
+
+**Is the monetary transmission truly state-dependent?** A growing body of empirical work shows that both the conduct and effects of monetary policy vary with macro-financial conditions. My results largely echo this view. The generalized impulse response functions (GIRFs) in Figure \ref{fig:girfs} show that (i) the Fed holds interest rates higher for longer during periods of housing-market stress, and (ii) credit aggregates, real activity, and prices fall somewhat more sharply in those periods. Still, for most variables, regime differences are smaller than one might expect, especially considering the relatively wide confidence bands. Strikingly, house-price responses are nearly identical across regimes, suggesting that the change in responses is likely not driven by changes in the asset price channel.
+
+Nevertheless, as the financial accelerator mechanism of @bernanke1999financial suggests, adverse financial market conditions amplify shocks to macroeconomic aggregates. As the GIRFs suggest, both output and prices on the real side of the economy, as well as credit markets in terms of credit volume appear to contract more amid high real estate market stress. Similarly to the findings of @fry2016effects, the larger contraction in credit volumes is not accompanied by widening credit spreads, which respond almost identically in both regimes suggesting no significant change in the pricing of risk across the two regimes.
+
+
+```{=latex}
+\begin{figure}[H]
+
+\begin{center}
+\includegraphics[width=\textwidth]{../figures/girfplot.pdf}
+\end{center}
+
+
+\caption{Generalized Impulse Responses \label{fig:girfs}}
+\bigskip
+\footnotesize 
+\textit{Notes}: Panel (a) shows the median impulse repsonses estimated from the bootstrap exercies. The color green indicates times of tranquility, while the color red indicates periods of turmoil in the economy using the. Panel (b) shows the differences between the between the regime specific impulse responses along with the 68\% and 95\% confidence bands in darker and lighter grey respectively. 
+\end{figure}
+```
+
+The most substantial regime difference lies in the policy rate path—and by extension, the term spread—following a monetary tightening. In the high-stress regime, the Fed maintains elevated rates for several quarters before easing. By contrast, during tranquil times, the Fed begins to reverse course more quickly. These results support @fry2016effects, who argue that monetary easing is delayed when financial conditions are fragile. Similarly, @adrian2018monetary argue that a looser stance during boom phases can fuel excessive leverage and risk-taking, prompting central banks to maintain tighter policy during housing bubbles. More recent work of @kiley2024central suggests that this cautious rate adjustment reflects an explicit weighting of financial-stability objectives in the Fed’s framework. 
+
+Consistent with standard theory, the yield curve inverts after a monetary tightening. In tranquil regimes, the inversion fades after about two quarters as recession fears abate. However, during housing-market turmoil—when the policy rate remains persistently high—the inversion persists longer, signaling more entrenched concerns about an economic downturn.
+
+
+**Why use the composite index instead of either RP or CGG?** As discussed in the [Quantifying Housing Market Stress](#subsec:indicator) subsection, in order to successfully identify emerging bubbles in the housing market, correctly identifying high leverage along real estate market misalignments is key. Figure \ref{fig:thresholdvars} shows the regime classifications using purely RP, purely CGG and lastly the composite index as threshold variables holding all else constant. Using purely RP as the threshold variable, incorrectly identifies essentially two periods. Firstly it fails to identify the late 80s / early 90s Savings and Loans (S&L) crisis, as the excessive credit buildup preceding the real estate market adjustment was not taken into account. Secondly, it classifies essentially all of the post 2000s time periods as a time of turmoil, even though home prices returned close to their fundamental value as well as excessive credit buildups have substantially moderated following the GFC up until early 2020.
+
+```{=latex}
+\begin{figure}[H]
+
+\begin{center}
+\includegraphics[width=\textwidth]{../figures/thvars.pdf}
+\end{center}
+
+
+\caption{An indicator of housing market stress \label{fig:thresholdvars}}
+\bigskip
+\footnotesize 
+\textit{Notes}: The color green indicates times of tranquility, while the color red indicates periods of turmoil in the economy using the RP, CGG and their composite index (PC1) as regime indicators respectively. Shaded areas indicate US recessions using the Hamilton GDP-based recession indicator.
+\end{figure}
+```
+
+On the other hand, using purely the CGG as the threshold variable fails to take into account housing fundamentals. Around the S&L crisis, it gives "too early of a warning" along the credit cycle, way before home prices started becoming misaligned from their fundamental value. Moreover, it fails to identify housing market misalignments around the 2020s.Leveraging the linear combination of both aggregates as the threshold variable yields us regime classifications that seem to align with historical events when real estate market misalignments were likely fueled by excessive credits and overleveraging.
+
+Lastly, the definition of a housing market bubble is rather compelling in the model's definition, when the composite index is used to select regimes. The start of an episode of turmoil in the real estate market starts when both credit gaps rise and rent-price ratios fall sharply and lasts continuously until both return to their trends or fundamental values. In other words, the model's definition of a housing bubble is when overleveraging coincides with (and likely fuels) misalignments of real estate prices from their fundamentals and lasts until the market corrects and cools off. The continuous nature, and lack of abrupt changes makes the regime classification a compelling indicator tracker of the housing cycle.
+
+Finally, the model’s definition of a housing‐market bubble — based on the composite index — is particularly elegant. An episode of turmoil begins when rising credit gaps coincide with a sharp decline in rent‐price ratios, and it persists until both metrics revert to their underlying trends or fundamentals. In other words, a bubble is identified whenever excessive leverage coincides with — and likely fuels — a misalignment of real‐estate prices from their fundamental values, ending only once the markets correct and cool off.  Moreover, the regimes do not change abruptly, distinctly isolating phases of the housing cycle and yielding a continuous, timely indicator of real estate market stress — much like the NBER recession indicator does for economic downturns.
+
+
+# Conclusion
+
+This paper examines how U.S. monetary policy shocks propagate differently depending on the state of the housing market. I construct a composite housing-stress indicator—using principal component analysis on the rent–price ratio and the credit-to-GDP gap—and embed it as the threshold variable in a two-regime threshold factor-augmented VAR (TFAVAR). This framework effectively distinguishes periods of forming housing bubbles from more tranquil phases in the housing and credit markets. To trace the propagation of shocks, I estimate generalized impulse response functions (GIRFs) and regime-specific shocks. A bootstrap simulation exercise confirms that monetary transmission is indeed state-dependent—though the differences across regimes are relatively modest. What stands out is the Fed’s conduct: during housing bubbles, the central bank appears more cautious in reversing its policy stance following a rate hike. This caution may reflect the need to cool down an overleveraged economy and avoid a rapid resurgence in lending amid falling interest rates.
+
+From a policy perspective, several key implications emerge. First, the response of real estate prices to monetary shocks does not differ substantially across regimes, suggesting that the asset-price channel remains relatively stable. This implies that monetary policy alone is unlikely to trigger a sharp correction in housing markets, and central bankers need not fear destabilizing effects from tightening policy. Second, while the financial accelerator appears to operate throughout the housing cycle, its amplification effects are somewhat muted. Still, this provides a rationale for pursuing active policy interventions during periods of high stress to restrain excessive credit growth. Third, the slower reversal of interest rates in high-stress regimes implies that policymakers should proceed gradually when easing, to avoid reigniting lending booms. In this sense, the results align with recent literature advocating for macro-financial considerations in monetary policymaking. Taking account of financial conditions can help central banks better leverage the amplification effects of credit dynamics while exercising appropriate caution during periods of heightened vulnerability.
+
+Looking ahead, several extensions could deepen this analysis. One important direction is to explore cross-sectional heterogeneity, as real estate dynamics may vary significantly across regions. This could be pursued either by extending the analysis to multiple countries or by examining state-level data within the U.S. Both approaches would pair well with a richer FAVAR framework that incorporates a broader set of variables in the factor extraction process. Finally, the composite housing-stress index could be further refined by incorporating additional indicators such as loan-to-value or debt-to-income ratios. While such data are less widely available, the current index already provides a useful and interpretable signal of emerging housing bubbles.
+
+
+
+
+# References
+```{=tex}
+\bgroup
+\renewcommand{\baselinestretch}{1}\normalsize
+```
+::: {#refs}
+:::
+<div id="ref"></div>
+```{=tex}
+\egroup
+```
